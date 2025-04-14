@@ -5,19 +5,12 @@ require_once 'includes/functions.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    $_SESSION['error'] = "Please login to edit recipes.";
     header("Location: login.php");
     exit();
 }
 
 // Get recipe ID from URL
 $recipe_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
-if (!$recipe_id) {
-    $_SESSION['error'] = "Invalid recipe ID.";
-    header("Location: my-recipes.php");
-    exit();
-}
 
 // Get available cuisines
 $cuisines = [
@@ -32,97 +25,98 @@ $cuisines = [
 ];
 
 // Fetch existing recipe data
-try {
-    $stmt = $pdo->prepare("SELECT * FROM recipes WHERE id = ? AND user_id = ?");
-    $stmt->execute([$recipe_id, $_SESSION['user_id']]);
-    $recipe = $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt = $conn->prepare("SELECT * FROM recipes WHERE id = ? AND user_id = ?");
+$stmt->bind_param("ii", $recipe_id, $_SESSION['user_id']);
+$stmt->execute();
+$result = $stmt->get_result();
 
-    if (!$recipe) {
-        $_SESSION['error'] = "Recipe not found or you don't have permission to edit it.";
-        header("Location: my-recipes.php");
-        exit();
-    }
-} catch (PDOException $e) {
-    $_SESSION['error'] = "Database error: " . $e->getMessage();
+if ($result->num_rows === 0) {
+    $_SESSION['error_message'] = "Recipe not found or you don't have permission to edit it.";
     header("Location: my-recipes.php");
     exit();
 }
 
+$recipe = $result->fetch_assoc();
+
 // Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_changes'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validate and sanitize inputs
+    $title = sanitizeInput($_POST['title']);
+    $description = sanitizeInput($_POST['description']);
+    $ingredients = sanitizeInput($_POST['ingredients']);
+    $instructions = sanitizeInput($_POST['instructions']);
+    $prep_time = intval($_POST['prep_time']);
+    $cook_time = intval($_POST['cook_time']);
+    $servings = intval($_POST['servings']);
+    $difficulty = sanitizeInput($_POST['difficulty']);
+    $cuisine_type = sanitizeInput($_POST['cuisine_type']);
+    
     $errors = [];
     
-    // Validate and sanitize inputs
-    $title = trim($_POST['title']);
-    $description = trim($_POST['description']);
-    $ingredients = trim($_POST['ingredients']);
-    $instructions = trim($_POST['instructions']);
-    $prep_time = filter_var($_POST['prep_time'], FILTER_VALIDATE_INT);
-    $cook_time = filter_var($_POST['cook_time'], FILTER_VALIDATE_INT);
-    $servings = filter_var($_POST['servings'], FILTER_VALIDATE_INT);
-    $difficulty = $_POST['difficulty'];
-    $cuisine_type = $_POST['cuisine_type'];
-
-    // Validation
+    // Validate required fields
     if (empty($title)) $errors[] = "Title is required";
     if (empty($ingredients)) $errors[] = "Ingredients are required";
     if (empty($instructions)) $errors[] = "Instructions are required";
-    if ($prep_time === false || $prep_time <= 0) $errors[] = "Invalid prep time";
-    if ($cook_time === false || $cook_time <= 0) $errors[] = "Invalid cook time";
-    if ($servings === false || $servings <= 0) $errors[] = "Invalid servings number";
+    if ($prep_time <= 0) $errors[] = "Prep time must be positive";
+    if ($cook_time <= 0) $errors[] = "Cook time must be positive";
+    if ($servings <= 0) $errors[] = "Servings must be positive";
     
-    // Handle image upload if provided
-    $image_path = $recipe['image_path']; // Keep existing image by default
+    // Handle image upload if a new image was provided
+    $image_path = $recipe['image_path']; // Default to existing image path
     if (!empty($_FILES['image']['name'])) {
-        $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
-        $max_size = 10 * 1024 * 1024; // 10MB
+        // Delete the old image if it exists
+        if (!empty($recipe['image_path']) && file_exists($recipe['image_path'])) {
+            unlink($recipe['image_path']);
+        }
         
-        if (!in_array($_FILES['image']['type'], $allowed_types)) {
-            $errors[] = "Invalid image type. Please upload JPEG, PNG, or GIF.";
-        } elseif ($_FILES['image']['size'] > $max_size) {
-            $errors[] = "Image size too large. Maximum size is 10MB.";
+        // Upload the new image
+        $upload_result = uploadImage($_FILES['image']);
+        if ($upload_result['success']) {
+            $image_path = $upload_result['path'];
         } else {
-            $upload_result = uploadImage($_FILES['image']);
-            if ($upload_result['success']) {
-                // Delete old image if exists
-                if (!empty($recipe['image_path']) && file_exists($recipe['image_path'])) {
-                    unlink($recipe['image_path']);
-                }
-                $image_path = $upload_result['path'];
-            } else {
-                $errors[] = "Error uploading image: " . $upload_result['error'];
-            }
+            $errors[] = "Error uploading image: " . $upload_result['message'];
         }
     }
-
-    // Update recipe if no errors
+    
+    // If no errors, update the recipe
     if (empty($errors)) {
-        try {
-            $stmt = $pdo->prepare("
-                UPDATE recipes 
-                SET title = ?, description = ?, ingredients = ?, 
-                    instructions = ?, prep_time = ?, cook_time = ?, 
-                    servings = ?, difficulty = ?, cuisine_type = ?, 
-                    image_path = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ? AND user_id = ?
-            ");
-
-            $result = $stmt->execute([
-                $title, $description, $ingredients, 
-                $instructions, $prep_time, $cook_time, 
-                $servings, $difficulty, $cuisine_type, 
-                $image_path, $recipe_id, $_SESSION['user_id']
-            ]);
-
-            if ($result) {
-                $_SESSION['success'] = "Recipe updated successfully!";
-                header("Location: recipe.php?id=" . $recipe_id);
-                exit();
-            } else {
-                $errors[] = "Failed to update recipe. Please try again.";
-            }
-        } catch (PDOException $e) {
-            $errors[] = "Database error: " . $e->getMessage();
+        $stmt = $conn->prepare("
+            UPDATE recipes 
+            SET title = ?,
+                description = ?,
+                ingredients = ?,
+                instructions = ?,
+                prep_time = ?,
+                cook_time = ?,
+                servings = ?,
+                difficulty = ?,
+                cuisine_type = ?,
+                image_path = ?,
+                updated_at = NOW()
+            WHERE id = ? AND user_id = ?
+        ");
+        
+        $stmt->bind_param("ssssiiisssii",
+            $title,
+            $description,
+            $ingredients,
+            $instructions,
+            $prep_time,
+            $cook_time,
+            $servings,
+            $difficulty,
+            $cuisine_type,
+            $image_path,
+            $recipe_id,
+            $_SESSION['user_id']
+        );
+        
+        if ($stmt->execute()) {
+            $_SESSION['success_message'] = "Recipe updated successfully!";
+            header("Location: recipe.php?id=" . $recipe_id);
+            exit();
+        } else {
+            $errors[] = "Error updating recipe: " . $stmt->error;
         }
     }
 }
@@ -168,17 +162,13 @@ function getCuisineEmoji($cuisine) {
                 <h1 class="text-2xl font-bold text-[#ff6b00]">Edit Recipe</h1>
             </div>
             
-            <?php if (isset($_SESSION['error'])): ?>
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                    <span class="block sm:inline"><?php echo $_SESSION['error']; ?></span>
-                    <?php unset($_SESSION['error']); ?>
-                </div>
-            <?php endif; ?>
-            
-            <?php if (isset($_SESSION['success'])): ?>
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
-                    <span class="block sm:inline"><?php echo $_SESSION['success']; ?></span>
-                    <?php unset($_SESSION['success']); ?>
+            <?php if (!empty($errors)): ?>
+                <div class="alert-error mx-6 mt-4">
+                    <ul class="list-disc pl-5">
+                        <?php foreach ($errors as $error): ?>
+                            <li><?php echo $error; ?></li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
             <?php endif; ?>
             
@@ -287,89 +277,44 @@ function getCuisineEmoji($cuisine) {
     <?php include 'includes/footer.php'; ?>
     
     <script>
-        // Enhance the existing form validation
+        // Preview image before upload
+        const imageInput = document.querySelector('input[type="file"]');
+        imageInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.querySelector('img');
+                    if (preview) {
+                        preview.src = e.target.result;
+                    } else {
+                        const newPreview = document.createElement('img');
+                        newPreview.src = e.target.result;
+                        newPreview.classList.add('w-32', 'h-32', 'object-cover', 'rounded', 'mb-2');
+                        imageInput.parentNode.insertBefore(newPreview, imageInput);
+                    }
+                }
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // Form validation
         document.querySelector('form').addEventListener('submit', function(e) {
             const title = document.querySelector('input[name="title"]').value.trim();
             const ingredients = document.querySelector('textarea[name="ingredients"]').value.trim();
             const instructions = document.querySelector('textarea[name="instructions"]').value.trim();
-            const prepTime = parseInt(document.querySelector('input[name="prep_time"]').value);
-            const cookTime = parseInt(document.querySelector('input[name="cook_time"]').value);
-            const servings = parseInt(document.querySelector('input[name="servings"]').value);
             
             let errors = [];
             
             if (!title) errors.push('Recipe title is required');
             if (!ingredients) errors.push('Ingredients are required');
             if (!instructions) errors.push('Instructions are required');
-            if (isNaN(prepTime) || prepTime <= 0) errors.push('Prep time must be a positive number');
-            if (isNaN(cookTime) || cookTime <= 0) errors.push('Cook time must be a positive number');
-            if (isNaN(servings) || servings <= 0) errors.push('Servings must be a positive number');
-            
-            const imageInput = document.querySelector('input[type="file"]');
-            if (imageInput.files.length > 0) {
-                const file = imageInput.files[0];
-                const maxSize = 10 * 1024 * 1024; // 10MB
-                
-                if (file.size > maxSize) {
-                    errors.push('Image size must be less than 10MB');
-                }
-                if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
-                    errors.push('Invalid image type. Please upload JPEG, PNG, or GIF');
-                }
-            }
             
             if (errors.length > 0) {
                 e.preventDefault();
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4';
-                errorDiv.innerHTML = errors.join('<br>');
-                const form = document.querySelector('form');
-                form.insertBefore(errorDiv, form.firstChild);
-                errorDiv.scrollIntoView({ behavior: 'smooth' });
-            }
-        });
-
-        // Add loading state to submit button
-        document.querySelector('button[type="submit"]').addEventListener('click', function(e) {
-            if (document.querySelector('form').checkValidity()) {
-                this.disabled = true;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
-            }
-        });
-
-        // Image preview enhancement
-        document.querySelector('input[type="file"]').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                // Validate file type and size
-                const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
-                const maxSize = 10 * 1024 * 1024; // 10MB
-                
-                if (!validTypes.includes(file.type)) {
-                    alert('Please upload a valid image file (JPEG, PNG, or GIF)');
-                    this.value = '';
-                    return;
-                }
-                
-                if (file.size > maxSize) {
-                    alert('File size must be less than 10MB');
-                    this.value = '';
-                    return;
-                }
-                
-                // Preview image
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.querySelector('img') || document.createElement('img');
-                    preview.src = e.target.result;
-                    preview.className = 'w-32 h-32 object-cover rounded mb-2';
-                    if (!document.querySelector('img')) {
-                        document.querySelector('.mb-2').appendChild(preview);
-                    }
-                }
-                reader.readAsDataURL(file);
+                alert(errors.join('\n'));
             }
         });
     </script>
 </body>
+</html> 
 </html> 
