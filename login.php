@@ -3,113 +3,72 @@ require_once 'includes/config.php';
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
-$errors = [];
-$success = false;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = sanitizeInput($_POST['username']);
-    $password = $_POST['password'];
-    
-    // Validate inputs
-    if (empty($username)) $errors[] = "Username is required";
-    if (empty($password)) $errors[] = "Password is required";
-    
-    // If no errors, verify user
-    if (empty($errors)) {
-        $sql = "SELECT id, username, password FROM users WHERE username = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows === 1) {
-            $user = $result->fetch_assoc();
-            if (password_verify($password, $user['password'])) {
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['username'];
-                
-                // Redirect to either the requested page or home
-                $redirect_url = $_SESSION['redirect_url'] ?? 'index.php';
-                unset($_SESSION['redirect_url']);
-                header("Location: " . $redirect_url);
-                exit();
-            } else {
-                $errors[] = "Invalid username or password";
-            }
-        } else {
-            $errors[] = "Invalid username or password";
-        }
-    }
-}
+$page_title = "Login";
+include 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - <?php echo APP_NAME; ?></title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="css/styles.css">
-</head>
-<body class="bg-gray-50">
-    <?php include 'includes/header.php'; ?>
 
-    <main class="container mx-auto px-4 py-8">
-        <div class="max-w-md mx-auto">
-            <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
-                <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold text-[#ff6b00] mb-2">Welcome Back!</h1>
-                    <p class="text-gray-600">Sign in to continue to <?php echo APP_NAME; ?></p>
-                </div>
-
-                <?php if (isset($_SESSION['error_message'])): ?>
-                    <div class="alert-error">
-                        <?php 
-                        echo $_SESSION['error_message'];
-                        unset($_SESSION['error_message']);
-                        ?>
-                    </div>
-                <?php endif; ?>
-
-                <form action="login.php" method="post" class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Username or Email</label>
-                        <input type="text" name="username" required class="form-input">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                        <input type="password" name="password" required class="form-input">
-                    </div>
-
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center">
-                            <input type="checkbox" name="remember" class="form-checkbox text-[#ff6b00]">
-                            <span class="ml-2 text-sm text-gray-600">Remember me</span>
-                        </label>
-                        <a href="forgot-password.php" class="text-sm text-[#ff6b00] hover:text-[#ff8533]">
-                            Forgot password?
-                        </a>
-                    </div>
-
-                    <button type="submit" class="btn-primary w-full">
-                        <i class="fas fa-sign-in-alt mr-2"></i>Sign In
-                    </button>
-
-                    <div class="text-center mt-6">
-                        <p class="text-gray-600">
-                            Don't have an account? 
-                            <a href="register.php" class="text-[#ff6b00] hover:text-[#ff8533] font-medium">
-                                Sign up now
-                            </a>
-                        </p>
-                    </div>
-                </form>
-            </div>
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Welcome Back!</h2>
+            <p class="text-gray-600">Sign in to continue cooking</p>
         </div>
-    </main>
 
-    <?php include 'includes/footer.php'; ?>
-</body>
-</html>
+        <?php if (!empty($errors)): ?>
+            <div class="bg-red-50 text-red-500 p-4 rounded-lg mb-6">
+                <ul class="list-disc pl-5">
+                    <?php foreach ($errors as $error): ?>
+                        <li><?php echo $error; ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <form method="post" action="login.php" class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email or Username</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                        <i class="fas fa-user"></i>
+                    </span>
+                    <input type="text" name="username" required 
+                           class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                        <i class="fas fa-lock"></i>
+                    </span>
+                    <input type="password" name="password" required 
+                           class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <input type="checkbox" name="remember" id="remember" 
+                           class="h-4 w-4 text-[#ff6b00] focus:ring-orange-500 border-gray-300 rounded">
+                    <label for="remember" class="ml-2 block text-sm text-gray-700">Remember me</label>
+                </div>
+                <a href="forgot-password.php" class="text-sm font-medium text-[#ff6b00] hover:text-[#ff8533]">
+                    Forgot password?
+                </a>
+            </div>
+
+            <button type="submit" class="w-full bg-gradient-to-r from-[#ff6b00] to-[#ff8533] text-white py-2 px-4 rounded-lg hover:opacity-90 transition duration-200 flex items-center justify-center gap-2">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>Sign In</span>
+            </button>
+
+            <div class="text-center text-sm text-gray-600">
+                Don't have an account? 
+                <a href="register.php" class="font-medium text-[#ff6b00] hover:text-[#ff8533]">Create one</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php include 'includes/footer.php'; ?>
