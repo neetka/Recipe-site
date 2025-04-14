@@ -1,0 +1,52 @@
+/* Orange Theme Colors */
+:root {
+    --primary-color: #ff6b00;
+    --primary-hover: #ff8533;
+    --primary-light: #fff0e6;
+    --primary-dark: #cc5500;
+}
+
+/* Common Button Styles */
+.btn-primary {
+    @apply px-6 py-2 bg-[#ff6b00] text-white rounded-lg hover:bg-[#ff8533] transform hover:scale-105 transition duration-300;
+}
+
+.btn-secondary {
+    @apply px-6 py-2 border border-[#ff6b00] text-[#ff6b00] rounded-lg hover:bg-[#fff0e6] transition duration-300;
+}
+
+/* Form Styles */
+.form-input {
+    @apply w-full p-2 border rounded-lg focus:ring-2 focus:ring-[#ff6b00] focus:border-[#ff6b00] transition duration-300;
+}
+
+.form-select {
+    @apply w-full p-2 border rounded-lg focus:ring-2 focus:ring-[#ff6b00] focus:border-[#ff6b00] transition duration-300;
+}
+
+/* Card Styles */
+.recipe-card {
+    @apply bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300;
+}
+
+.recipe-card:hover {
+    @apply transform -translate-y-1;
+}
+
+/* Header/Navigation Styles */
+.nav-link {
+    @apply text-gray-700 hover:text-[#ff6b00] transition duration-300;
+}
+
+.nav-link.active {
+    @apply text-[#ff6b00] font-semibold;
+}
+
+/* Alert Styles */
+.alert-success {
+    @apply bg-[#fff0e6] border-l-4 border-[#ff6b00] text-[#cc5500] p-4 mb-6 rounded;
+}
+
+.alert-error {
+    @apply bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded;
+} 

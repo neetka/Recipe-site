@@ -4,14 +4,20 @@ require_once 'includes/config.php';
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
-// Start session
-session_start();
-
 // Check if user is logged in
-requireLogin();
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
 
 $errors = [];
 $success = false;
+
+// Get available cuisines
+$cuisines = [
+    'Italian', 'Mexican', 'Chinese', 'Indian', 'Japanese',
+    'Mediterranean', 'American', 'Thai', 'French', 'Other'
+];
 
 // Rest of your existing add-recipe.php code...
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // If no errors, save to database
     if (empty($errors)) {
-        $user_id = 1; // Replace with actual logged-in user ID
+        $user_id = $_SESSION['user_id']; // Get the actual logged-in user ID
         
         $sql = "INSERT INTO recipes (user_id, title, description, ingredients, instructions, 
                 prep_time, cook_time, servings, difficulty, cuisine_type, image_path)
@@ -59,13 +65,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             $success = true;
-            // Reset form fields
-            $_POST = [];
+            // Redirect to the newly created recipe
+            $recipe_id = $conn->insert_id;
+            header("Location: recipe.php?id=" . $recipe_id);
+            exit();
         } else {
             $errors[] = "Error saving recipe: " . $stmt->error;
         }
     }
 }
+
+function getCuisineEmoji($cuisine) {
+    $emojis = [
+        'Italian' => '🍝',
+        'Mexican' => '🌮',
+        'Indian' => '🍛',
+        'Chinese' => '🥢',
+        'American' => '🍔',
+        'Japanese' => '🍱',
+        'Mediterranean' => '🫒',
+        'Other' => '🍽️'
+    ];
+    return $emojis[$cuisine] ?? '🍽️';
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -110,10 +133,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                class="w-full p-2 border rounded" value="<?php echo $_POST['title'] ?? ''; ?>">
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Cuisine Type</label>
-                        <input type="text" name="cuisine_type" 
-                               class="w-full p-2 border rounded" value="<?php echo $_POST['cuisine_type'] ?? ''; ?>">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cuisine Type*</label>
+                        <select name="cuisine_type" class="form-select" required>
+                        <option value="">All Cuisines 🌎</option>
+                        <?php foreach ($cuisines as $cuisine): ?>
+                            <option value="<?php echo $cuisine; ?>">
+                                <?php echo $cuisine; ?> <?php echo getCuisineEmoji($cuisine); ?>
+                            </option>
+                        <?php endforeach; ?>
+                        </select>
                     </div>
                 </div>
                 
@@ -177,9 +206,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 
                 <!-- Submit Button -->
-                <div class="flex justify-end">
-                    <button type="submit" class="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700 transition">
-                        Save Recipe
+                <div class="flex items-center justify-end space-x-4 pt-6 border-t">
+                    <a href="index.php" class="btn-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-plus mr-2"></i>Add Recipe
                     </button>
                 </div>
             </form>

@@ -2,8 +2,24 @@
 require_once 'db.php';
 
 function sanitizeInput($data) {
-    global $conn;
-    return htmlspecialchars(strip_tags(trim($conn->real_escape_string($data))));
+    return htmlspecialchars(trim($data), ENT_QUOTES, 'UTF-8');
+}
+
+function validateInput($data, $type = 'string', $min = null, $max = null) {
+    switch ($type) {
+        case 'int':
+            $data = filter_var($data, FILTER_VALIDATE_INT);
+            if ($data === false) return false;
+            if ($min !== null && $data < $min) return false;
+            if ($max !== null && $data > $max) return false;
+            return $data;
+        case 'string':
+            if ($min !== null && strlen($data) < $min) return false;
+            if ($max !== null && strlen($data) > $max) return false;
+            return $data;
+        default:
+            return false;
+    }
 }
 
 function getRecipes($sort = 'newest', $filter = []) {
@@ -67,35 +83,99 @@ function getRecipes($sort = 'newest', $filter = []) {
 
 function uploadImage($file) {
     $target_dir = UPLOAD_DIR;
-    $target_file = $target_dir . basename($file['name']);
-    $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
-    
-    // Check if image file is a actual image
-    $check = getimagesize($file['tmp_name']);
-    if ($check === false) {
-        return ['success' => false, 'message' => 'File is not an image.'];
-    }
     
     // Check file size
     if ($file['size'] > MAX_FILE_SIZE) {
-        return ['success' => false, 'message' => 'File is too large.'];
+        return ['success' => false, 'message' => 'File is too large. Maximum size is ' . (MAX_FILE_SIZE / 1024 / 1024) . 'MB'];
     }
     
-    // Allow certain file formats
-    $allowed = ['jpg', 'jpeg', 'png', 'gif'];
-    if (!in_array($imageFileType, $allowed)) {
-        return ['success' => false, 'message' => 'Only JPG, JPEG, PNG & GIF files are allowed.'];
+    // Check if upload directory exists and is writable
+    if (!is_dir($target_dir)) {
+        if (!mkdir($target_dir, 0777, true)) {
+            error_log("Failed to create uploads directory at: " . $target_dir);
+            return ['success' => false, 'message' => 'Failed to create uploads directory. Please check server permissions.'];
+        }
     }
     
-    // Generate unique filename
-    $filename = uniqid() . '.' . $imageFileType;
+    // Check directory permissions
+    if (!is_writable($target_dir)) {
+        // Try to fix permissions
+        if (!chmod($target_dir, 0777)) {
+            error_log("Uploads directory is not writable at: " . $target_dir);
+            error_log("Current permissions: " . substr(sprintf('%o', fileperms($target_dir)), -4));
+            return ['success' => false, 'message' => 'Uploads directory is not writable. Please check server permissions.'];
+        }
+    }
+
+    // Validate file type and get image information
+    $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime_type = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    
+    if (!in_array($mime_type, $allowed_types)) {
+        return ['success' => false, 'message' => 'Invalid file type. Only JPG, PNG and GIF are allowed'];
+    }
+
+    // Get image information
+    $image_info = getimagesize($file['tmp_name']);
+    if ($image_info === false) {
+        return ['success' => false, 'message' => 'Invalid image file'];
+    }
+
+    // Generate a unique filename with proper extension
+    $extension = image_type_to_extension($image_info[2], false);
+    $filename = uniqid() . '_' . pathinfo($file['name'], PATHINFO_FILENAME) . '.' . $extension;
     $target_path = $target_dir . $filename;
-    
-    // Try to upload file
-    if (move_uploaded_file($file['tmp_name'], $target_path)) {
-        return ['success' => true, 'path' => $target_path];
+    $web_path = 'uploads/' . $filename;
+
+    // Process and save the image
+    $source_image = null;
+    switch ($mime_type) {
+        case 'image/jpeg':
+            $source_image = imagecreatefromjpeg($file['tmp_name']);
+            break;
+        case 'image/png':
+            $source_image = imagecreatefrompng($file['tmp_name']);
+            break;
+        case 'image/gif':
+            $source_image = imagecreatefromgif($file['tmp_name']);
+            break;
+    }
+
+    if (!$source_image) {
+        return ['success' => false, 'message' => 'Failed to process image'];
+    }
+
+    // Preserve transparency for PNG and GIF
+    if ($mime_type === 'image/png' || $mime_type === 'image/gif') {
+        imagealphablending($source_image, true);
+        imagesavealpha($source_image, true);
+    }
+
+    // Save the image with high quality
+    $success = false;
+    switch ($mime_type) {
+        case 'image/jpeg':
+            $success = imagejpeg($source_image, $target_path, 100); // 100 is maximum quality
+            break;
+        case 'image/png':
+            $success = imagepng($source_image, $target_path, 0); // 0 is no compression
+            break;
+        case 'image/gif':
+            $success = imagegif($source_image, $target_path);
+            break;
+    }
+
+    // Free up memory
+    imagedestroy($source_image);
+
+    if ($success) {
+        chmod($target_path, 0666);
+        return ['success' => true, 'path' => $web_path];
     } else {
-        return ['success' => false, 'message' => 'Error uploading file.'];
+        error_log("Failed to save processed image. Target path: " . $target_path);
+        return ['success' => false, 'message' => 'Failed to save image. Please try again.'];
     }
 }
 
