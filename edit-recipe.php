@@ -14,14 +14,14 @@ $recipe_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 // Get available cuisines
 $cuisines = [
-    'Italian' => ['Pizza', 'Pasta', 'Risotto', 'Mediterranean'],
-    'Asian' => ['Chinese', 'Japanese', 'Thai', 'Korean', 'Vietnamese', 'Indian'],
-    'American' => ['BBQ', 'Burgers', 'Soul Food', 'Tex-Mex'],
-    'European' => ['French', 'German', 'Spanish', 'Greek'],
-    'Latin American' => ['Mexican', 'Brazilian', 'Peruvian', 'Argentine'],
-    'Middle Eastern' => ['Lebanese', 'Turkish', 'Persian', 'Arabian'],
-    'African' => ['Moroccan', 'Ethiopian', 'Nigerian', 'South African'],
-    'Other' => ['Fusion', 'Modern', 'International']
+    'Italian' => '🍝',
+    'Mexican' => '🌮',
+    'Indian' => '🍛',
+    'Chinese' => '🥢',
+    'American' => '🍔',
+    'Japanese' => '🍱',
+    'Mediterranean' => '🫒',
+    'Other' => '🍽️'
 ];
 
 // Fetch existing recipe data
@@ -80,43 +80,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // If no errors, update the recipe
     if (empty($errors)) {
-        $stmt = $conn->prepare("
-            UPDATE recipes 
-            SET title = ?,
-                description = ?,
-                ingredients = ?,
-                instructions = ?,
-                prep_time = ?,
-                cook_time = ?,
-                servings = ?,
-                difficulty = ?,
-                cuisine_type = ?,
-                image_path = ?,
-                updated_at = NOW()
-            WHERE id = ? AND user_id = ?
-        ");
-        
-        $stmt->bind_param("ssssiiisssii",
-            $title,
-            $description,
-            $ingredients,
-            $instructions,
-            $prep_time,
-            $cook_time,
-            $servings,
-            $difficulty,
-            $cuisine_type,
-            $image_path,
-            $recipe_id,
-            $_SESSION['user_id']
-        );
-        
-        if ($stmt->execute()) {
+        try {
+            // Enable error reporting for debugging
+            mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+            
+            $stmt = $conn->prepare("
+                UPDATE recipes 
+                SET title = ?,
+                    description = ?,
+                    ingredients = ?,
+                    instructions = ?,
+                    prep_time = ?,
+                    cook_time = ?,
+                    servings = ?,
+                    difficulty = ?,
+                    cuisine_type = ?,
+                    image_path = ?
+                WHERE id = ? AND user_id = ?
+            ");
+            
+            if (!$stmt) {
+                throw new Exception("Prepare failed: " . $conn->error);
+            }
+            
+            $stmt->bind_param("ssssiiisssii",
+                $title,
+                $description,
+                $ingredients,
+                $instructions,
+                $prep_time,
+                $cook_time,
+                $servings,
+                $difficulty,
+                $cuisine_type,
+                $image_path,
+                $recipe_id,
+                $_SESSION['user_id']
+            );
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Execute failed: " . $stmt->error);
+            }
+            
             $_SESSION['success_message'] = "Recipe updated successfully!";
             header("Location: recipe.php?id=" . $recipe_id);
             exit();
-        } else {
-            $errors[] = "Error updating recipe: " . $stmt->error;
+            
+        } catch (Exception $e) {
+            $errors[] = "Database error: " . $e->getMessage();
+            // Log the error for debugging
+            error_log("Recipe update error: " . $e->getMessage());
+        } finally {
+            if (isset($stmt)) {
+                $stmt->close();
+            }
         }
     }
 }
@@ -181,20 +198,24 @@ function getCuisineEmoji($cuisine) {
                                value="<?php echo htmlspecialchars($recipe['title']); ?>">
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Cuisine Type*</label>
-                        <select name="cuisine_type" class="form-select" required>
-                            <?php foreach ($cuisines as $category => $subcuisines): ?>
-                                <optgroup label="<?php echo htmlspecialchars($category); ?>">
-                                    <?php foreach ($subcuisines as $cuisine): ?>
-                                        <option value="<?php echo htmlspecialchars($cuisine); ?>"
-                                                <?php echo $recipe['cuisine_type'] === $cuisine ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($cuisine); ?> <?php echo getCuisineEmoji($cuisine); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </optgroup>
-                            <?php endforeach; ?>
-                        </select>
+                    <!-- Cuisine Type -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Cuisine Type</label>
+                        <div class="relative">
+                            <select name="cuisine_type" class="form-select w-full py-3 px-4 border border-gray-300 bg-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#ff6b00] focus:border-transparent appearance-none cursor-pointer">
+                                <?php foreach ($cuisines as $cuisine => $emoji): ?>
+                                    <option value="<?php echo $cuisine; ?>" 
+                                            <?php echo $recipe['cuisine_type'] === $cuisine ? 'selected' : ''; ?>>
+                                        <?php echo $emoji . ' ' . $cuisine; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                                </svg>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -302,19 +323,49 @@ function getCuisineEmoji($cuisine) {
             const title = document.querySelector('input[name="title"]').value.trim();
             const ingredients = document.querySelector('textarea[name="ingredients"]').value.trim();
             const instructions = document.querySelector('textarea[name="instructions"]').value.trim();
+            const cuisine_type = document.querySelector('select[name="cuisine_type"]');
             
             let errors = [];
             
             if (!title) errors.push('Recipe title is required');
             if (!ingredients) errors.push('Ingredients are required');
             if (!instructions) errors.push('Instructions are required');
+            if (!cuisine_type.value) errors.push('Please select a cuisine type');
             
             if (errors.length > 0) {
                 e.preventDefault();
                 alert(errors.join('\n'));
             }
         });
+
+        // Remove the cuisine selection event listeners since we're using a select element now
+        document.querySelector('select[name="cuisine_type"]').addEventListener('change', function() {
+            this.style.borderColor = '#ff6b00';
+        });
     </script>
+
+    <style>
+        /* Custom styles for the select dropdown */
+        .form-select {
+            background-image: none;
+        }
+        
+        .form-select option {
+            padding: 8px;
+            font-size: 1rem;
+        }
+        
+        /* Hover effect for options */
+        .form-select option:hover {
+            background-color: #fff0e6;
+            color: #ff6b00;
+        }
+        
+        /* Selected option style */
+        .form-select option:checked {
+            background-color: #fff0e6;
+            color: #ff6b00;
+        }
+    </style>
 </body>
-</html> 
-</html> 
+</html>
