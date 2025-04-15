@@ -36,32 +36,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("Invalid input data");
     }
 
-    // Check if recipe exists
-    $stmt = $conn->prepare("SELECT id FROM recipes WHERE id = ?");
-    $stmt->bind_param("i", $recipe_id);
-    $stmt->execute();
-    if (!$stmt->get_result()->num_rows) {
-        die("Recipe not found");
-    }
+    try {
+        // Check if recipe exists
+        $stmt = $conn->prepare("SELECT id FROM recipes WHERE id = ?");
+        $stmt->execute([$recipe_id]);
+        if (!$stmt->fetch()) {
+            die("Recipe not found");
+        }
 
-    // Check for existing review
-    $stmt = $conn->prepare("SELECT id FROM reviews WHERE recipe_id = ? AND user_id = ?");
-    $stmt->bind_param("ii", $recipe_id, $user_id);
-    $stmt->execute();
-    if ($stmt->get_result()->num_rows) {
-        die("You have already reviewed this recipe");
-    }
+        // Check for existing review
+        $stmt = $conn->prepare("SELECT id FROM reviews WHERE recipe_id = ? AND user_id = ?");
+        $stmt->execute([$recipe_id, $user_id]);
+        if ($stmt->fetch()) {
+            die("You have already reviewed this recipe");
+        }
 
-    // Save to database
-    $sql = "INSERT INTO reviews (recipe_id, user_id, rating, comment) VALUES (?, ?, ?, ?)";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("iiis", $recipe_id, $user_id, $rating, $comment);
-    
-    if ($stmt->execute()) {
+        // Save to database
+        $sql = "INSERT INTO reviews (recipe_id, user_id, rating, comment) VALUES (?, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([$recipe_id, $user_id, $rating, $comment]);
+        
         $_SESSION['review_success'] = true;
         header("Location: " . $_SERVER['HTTP_REFERER']);
-    } else {
-        error_log("Error saving review: " . $conn->error);
+    } catch (PDOException $e) {
+        error_log("Error saving review: " . $e->getMessage());
         die("An error occurred while saving your review. Please try again later.");
     }
 }

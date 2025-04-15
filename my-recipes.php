@@ -10,21 +10,25 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Get user's recipes with stats
-$stmt = $conn->prepare("
-    SELECT r.*, 
-           COUNT(DISTINCT rev.id) as review_count,
-           AVG(rev.rating) as avg_rating,
-           COUNT(DISTINCT rl.id) as like_count
-    FROM recipes r
-    LEFT JOIN reviews rev ON r.id = rev.recipe_id
-    LEFT JOIN recipe_likes rl ON r.id = rl.recipe_id
-    WHERE r.user_id = ?
-    GROUP BY r.id
-    ORDER BY r.created_at DESC
-");
-$stmt->bind_param("i", $_SESSION['user_id']);
-$stmt->execute();
-$recipes = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+try {
+    $stmt = $conn->prepare("
+        SELECT r.*, 
+               COUNT(DISTINCT rev.id) as review_count,
+               AVG(rev.rating) as avg_rating,
+               COUNT(DISTINCT rl.id) as like_count
+        FROM recipes r
+        LEFT JOIN reviews rev ON r.id = rev.recipe_id
+        LEFT JOIN recipe_likes rl ON r.id = rl.recipe_id
+        WHERE r.user_id = ?
+        GROUP BY r.id
+        ORDER BY r.created_at DESC
+    ");
+    $stmt->execute([$_SESSION['user_id']]);
+    $recipes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Error fetching recipes: " . $e->getMessage());
+    $recipes = [];
+}
 ?>
 
 <!DOCTYPE html>

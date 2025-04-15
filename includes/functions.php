@@ -32,25 +32,21 @@ function getRecipes($sort = 'newest', $filter = []) {
     
     $where = [];
     $params = [];
-    $types = '';
     
     // Apply filters
     if (!empty($filter['cuisine'])) {
         $where[] = "r.cuisine_type = ?";
         $params[] = $filter['cuisine'];
-        $types .= 's';
     }
     
     if (!empty($filter['difficulty'])) {
         $where[] = "r.difficulty = ?";
         $params[] = $filter['difficulty'];
-        $types .= 's';
     }
     
     if (!empty($filter['ingredient'])) {
         $where[] = "r.ingredients LIKE ?";
         $params[] = '%' . $filter['ingredient'] . '%';
-        $types .= 's';
     }
     
     if (!empty($where)) {
@@ -69,16 +65,14 @@ function getRecipes($sort = 'newest', $filter = []) {
             $sql .= " ORDER BY r.created_at DESC";
     }
     
-    $stmt = $conn->prepare($sql);
-    
-    if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error fetching recipes: " . $e->getMessage());
+        return [];
     }
-    
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    return $result->fetch_all(MYSQLI_ASSOC);
 }
 
 function uploadImage($file) {

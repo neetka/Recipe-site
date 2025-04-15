@@ -186,15 +186,15 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     
                     <!-- Categories Dropdown -->
                     <div class="nav-group">
-                        <a href="#" class="nav-item">
+                        <a href="#categories" class="nav-item">
                             <i class="fas fa-th"></i>
                             <span>Categories</span>
                         </a>
-                        <a href="#" class="nav-item">
+                        <a href="#about" class="nav-item">
                             <i class="fas fa-info-circle"></i>
                             <span>About</span>
                         </a>
-                        <a href="#" class="nav-item">
+                        <a href="#recipes" class="nav-item">
                             <i class="fas fa-utensils"></i>
                             <span>Recipes</span>
                         </a>

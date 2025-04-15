@@ -3,6 +3,54 @@ require_once 'includes/config.php';
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
+$errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = sanitizeInput($_POST['username']);
+    $password = $_POST['password'];
+    $remember = isset($_POST['remember']);
+    
+    if (empty($username) || empty($password)) {
+        $errors[] = "Please enter both username and password";
+    } else {
+        try {
+            $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE username = ? OR email = ?");
+            $stmt->execute([$username, $username]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($user && password_verify($password, $user['password'])) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                
+                if ($remember) {
+                    // Set remember me cookie for 30 days
+                    $token = bin2hex(random_bytes(32));
+                    $expiry = time() + (30 * 24 * 60 * 60);
+                    
+                    try {
+                        $stmt = $conn->prepare("UPDATE users SET remember_token = ?, remember_token_expiry = ? WHERE id = ?");
+                        $stmt->execute([$token, date('Y-m-d H:i:s', $expiry), $user['id']]);
+                        
+                        setcookie('remember_token', $token, $expiry, '/', '', true, true);
+                    } catch (PDOException $e) {
+                        error_log("Error setting remember token: " . $e->getMessage());
+                    }
+                }
+                
+                // Redirect to the page they were trying to access or home page
+                $redirect = isset($_GET['redirect']) ? $_GET['redirect'] : 'index.php';
+                header("Location: " . $redirect);
+                exit();
+            } else {
+                $errors[] = "Invalid username/email or password";
+            }
+        } catch (PDOException $e) {
+            error_log("Login error: " . $e->getMessage());
+            $errors[] = "An error occurred during login. Please try again.";
+        }
+    }
+}
+
 $page_title = "Login";
 include 'includes/header.php';
 ?>

@@ -25,18 +25,20 @@ $cuisines = [
 ];
 
 // Fetch existing recipe data
-$stmt = $conn->prepare("SELECT * FROM recipes WHERE id = ? AND user_id = ?");
-$stmt->bind_param("ii", $recipe_id, $_SESSION['user_id']);
-$stmt->execute();
-$result = $stmt->get_result();
+try {
+    $stmt = $conn->prepare("SELECT * FROM recipes WHERE id = ? AND user_id = ?");
+    $stmt->execute([$recipe_id, $_SESSION['user_id']]);
+    $recipe = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if ($result->num_rows === 0) {
-    $_SESSION['error_message'] = "Recipe not found or you don't have permission to edit it.";
-    header("Location: my-recipes.php");
-    exit();
+    if (!$recipe) {
+        $_SESSION['error_message'] = "Recipe not found or you don't have permission to edit it.";
+        header("Location: my-recipes.php");
+        exit();
+    }
+} catch (PDOException $e) {
+    error_log("Error fetching recipe: " . $e->getMessage());
+    die("An error occurred while fetching the recipe.");
 }
-
-$recipe = $result->fetch_assoc();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -81,9 +83,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // If no errors, update the recipe
     if (empty($errors)) {
         try {
-            // Enable error reporting for debugging
-            mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-            
             $stmt = $conn->prepare("
                 UPDATE recipes 
                 SET title = ?,
@@ -99,11 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id = ? AND user_id = ?
             ");
             
-            if (!$stmt) {
-                throw new Exception("Prepare failed: " . $conn->error);
-            }
-            
-            $stmt->bind_param("ssssiiisssii",
+            $stmt->execute([
                 $title,
                 $description,
                 $ingredients,
@@ -116,24 +111,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $image_path,
                 $recipe_id,
                 $_SESSION['user_id']
-            );
-            
-            if (!$stmt->execute()) {
-                throw new Exception("Execute failed: " . $stmt->error);
-            }
+            ]);
             
             $_SESSION['success_message'] = "Recipe updated successfully!";
             header("Location: recipe.php?id=" . $recipe_id);
             exit();
             
-        } catch (Exception $e) {
-            $errors[] = "Database error: " . $e->getMessage();
-            // Log the error for debugging
+        } catch (PDOException $e) {
             error_log("Recipe update error: " . $e->getMessage());
-        } finally {
-            if (isset($stmt)) {
-                $stmt->close();
-            }
+            $errors[] = "An error occurred while updating the recipe.";
         }
     }
 }

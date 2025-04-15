@@ -11,7 +11,6 @@ $difficulty = isset($_GET['difficulty']) ? sanitizeInput($_GET['difficulty']) : 
 // Base query
 $sql = "SELECT * FROM recipes WHERE 1=1";
 $params = [];
-$types = "";
 
 // Add search conditions
 if (!empty($search_query)) {
@@ -20,28 +19,27 @@ if (!empty($search_query)) {
     $params[] = $search_param;
     $params[] = $search_param;
     $params[] = $search_param;
-    $types .= "sss";
 }
 
 if ($cuisine_type !== 'All Cuisines') {
     $sql .= " AND cuisine_type = ?";
     $params[] = $cuisine_type;
-    $types .= "s";
 }
 
 if ($difficulty !== 'Any Level') {
     $sql .= " AND difficulty = ?";
     $params[] = $difficulty;
-    $types .= "s";
 }
 
-// Prepare and execute query
-$stmt = $conn->prepare($sql);
-if (!empty($params)) {
-    $stmt->bind_param($types, ...$params);
+try {
+    // Prepare and execute query
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($params);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Error searching recipes: " . $e->getMessage());
+    $results = [];
 }
-$stmt->execute();
-$results = $stmt->get_result();
 
 // Start HTML output
 ?>
@@ -61,13 +59,13 @@ $results = $stmt->get_result();
     <main class="container mx-auto px-4 py-8">
         <h1 class="text-2xl font-bold mb-6">Search Results</h1>
         
-        <?php if ($results->num_rows === 0): ?>
+        <?php if (empty($results)): ?>
             <div class="text-center py-8">
                 <p class="text-gray-600">No recipes found matching your search criteria.</p>
             </div>
         <?php else: ?>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <?php while ($recipe = $results->fetch_assoc()): ?>
+                <?php foreach ($results as $recipe): ?>
                     <div class="bg-white rounded-lg shadow-md overflow-hidden">
                         <a href="recipe.php?id=<?php echo $recipe['id']; ?>">
                             <?php if (!empty($recipe['image_path'])): ?>
@@ -90,7 +88,7 @@ $results = $stmt->get_result();
                             </div>
                         </a>
                     </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </main>

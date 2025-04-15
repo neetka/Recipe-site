@@ -10,44 +10,52 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Get user data
-$stmt = $conn->prepare("
-    SELECT u.*, 
-           COUNT(DISTINCT r.id) as total_recipes,
-           COUNT(DISTINCT rev.recipe_id) as total_reviews,
-           (SELECT COUNT(*) FROM recipe_likes WHERE user_id = u.id) as total_likes_given,
-           (SELECT COUNT(*) FROM recipe_likes rl 
-            JOIN recipes r2 ON rl.recipe_id = r2.id 
-            WHERE r2.user_id = u.id) as total_likes_received
-    FROM users u
-    LEFT JOIN recipes r ON u.id = r.user_id
-    LEFT JOIN reviews rev ON u.id = rev.user_id
-    WHERE u.id = ?
-    GROUP BY u.id
-");
-$stmt->bind_param("i", $_SESSION['user_id']);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
+try {
+    $stmt = $conn->prepare("
+        SELECT u.*, 
+               COUNT(DISTINCT r.id) as total_recipes,
+               COUNT(DISTINCT rev.recipe_id) as total_reviews,
+               (SELECT COUNT(*) FROM recipe_likes WHERE user_id = u.id) as total_likes_given,
+               (SELECT COUNT(*) FROM recipe_likes rl 
+                JOIN recipes r2 ON rl.recipe_id = r2.id 
+                WHERE r2.user_id = u.id) as total_likes_received
+        FROM users u
+        LEFT JOIN recipes r ON u.id = r.user_id
+        LEFT JOIN reviews rev ON u.id = rev.user_id
+        WHERE u.id = ?
+        GROUP BY u.id
+    ");
+    $stmt->execute([$_SESSION['user_id']]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Error fetching user data: " . $e->getMessage());
+    die("An error occurred while fetching your profile data.");
+}
 
 // Get user's recent activity
-$stmt = $conn->prepare("
-    (SELECT 'recipe' as type, r.id, r.title, r.created_at, NULL as rating, NULL as comment
-     FROM recipes r
-     WHERE r.user_id = ?
-     ORDER BY r.created_at DESC
-     LIMIT 5)
-    UNION ALL
-    (SELECT 'review' as type, r.id, r.title, rev.created_at, rev.rating, rev.comment
-     FROM reviews rev
-     JOIN recipes r ON rev.recipe_id = r.id
-     WHERE rev.user_id = ?
-     ORDER BY rev.created_at DESC
-     LIMIT 5)
-    ORDER BY created_at DESC
-    LIMIT 10
-");
-$stmt->bind_param("ii", $_SESSION['user_id'], $_SESSION['user_id']);
-$stmt->execute();
-$activities = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+try {
+    $stmt = $conn->prepare("
+        (SELECT 'recipe' as type, r.id, r.title, r.created_at, NULL as rating, NULL as comment
+         FROM recipes r
+         WHERE r.user_id = ?
+         ORDER BY r.created_at DESC
+         LIMIT 5)
+        UNION ALL
+        (SELECT 'review' as type, r.id, r.title, rev.created_at, rev.rating, rev.comment
+         FROM reviews rev
+         JOIN recipes r ON rev.recipe_id = r.id
+         WHERE rev.user_id = ?
+         ORDER BY rev.created_at DESC
+         LIMIT 5)
+        ORDER BY created_at DESC
+        LIMIT 10
+    ");
+    $stmt->execute([$_SESSION['user_id'], $_SESSION['user_id']]);
+    $activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Error fetching user activity: " . $e->getMessage());
+    $activities = [];
+}
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -63,25 +71,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Check if username or email already exists
     if (empty($errors)) {
-        $stmt = $conn->prepare("SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?");
-        $stmt->bind_param("ssi", $username, $email, $_SESSION['user_id']);
-        $stmt->execute();
-        if ($stmt->get_result()->num_rows > 0) {
-            $errors[] = "Username or email already exists";
+        try {
+            $stmt = $conn->prepare("SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?");
+            $stmt->execute([$username, $email, $_SESSION['user_id']]);
+            if ($stmt->rowCount() > 0) {
+                $errors[] = "Username or email already exists";
+            }
+        } catch (PDOException $e) {
+            error_log("Error checking username/email: " . $e->getMessage());
+            $errors[] = "An error occurred while checking username/email availability";
         }
     }
     
     // Update profile if no errors
     if (empty($errors)) {
-        $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, bio = ? WHERE id = ?");
-        $stmt->bind_param("sssi", $username, $email, $bio, $_SESSION['user_id']);
-        
-        if ($stmt->execute()) {
-            $_SESSION['success_message'] = "Profile updated successfully!";
-            header("Location: profile.php");
-            exit();
-        } else {
-            $errors[] = "Error updating profile: " . $stmt->error;
+        try {
+            $stmt = $conn->prepare("UPDATE users SET username = ?, email = ?, bio = ? WHERE id = ?");
+            if ($stmt->execute([$username, $email, $bio, $_SESSION['user_id']])) {
+                $_SESSION['success_message'] = "Profile updated successfully!";
+                header("Location: profile.php");
+                exit();
+            }
+        } catch (PDOException $e) {
+            error_log("Error updating profile: " . $e->getMessage());
+            $errors[] = "An error occurred while updating your profile";
         }
     }
 }

@@ -53,24 +53,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // If no errors, save to database
     if (empty($errors)) {
-        $user_id = $_SESSION['user_id']; // Get the actual logged-in user ID
-        
-        $sql = "INSERT INTO recipes (user_id, title, description, ingredients, instructions, 
-                prep_time, cook_time, servings, difficulty, cuisine_type, image_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("issssiiisss", $user_id, $title, $description, $ingredients, $instructions, 
-                         $prep_time, $cook_time, $servings, $difficulty, $cuisine_type, $image_path);
-        
-        if ($stmt->execute()) {
+        try {
+            $user_id = $_SESSION['user_id'];
+            
+            $sql = "INSERT INTO recipes (user_id, title, description, ingredients, instructions, 
+                    prep_time, cook_time, servings, difficulty, cuisine_type, image_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            $stmt = $conn->prepare($sql);
+            $stmt->execute([
+                $user_id, $title, $description, $ingredients, $instructions,
+                $prep_time, $cook_time, $servings, $difficulty, $cuisine_type, $image_path
+            ]);
+            
             $success = true;
             // Redirect to the newly created recipe
-            $recipe_id = $conn->insert_id;
+            $recipe_id = $conn->lastInsertId();
             header("Location: recipe.php?id=" . $recipe_id);
             exit();
-        } else {
-            $errors[] = "Error saving recipe: " . $stmt->error;
+        } catch (PDOException $e) {
+            error_log("Error saving recipe: " . $e->getMessage());
+            $errors[] = "An error occurred while saving the recipe.";
         }
     }
 }

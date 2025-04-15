@@ -3,6 +3,68 @@ require_once 'includes/config.php';
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
+$errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = sanitizeInput($_POST['username']);
+    $email = sanitizeInput($_POST['email']);
+    $password = $_POST['password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    // Validate inputs
+    if (empty($username)) {
+        $errors[] = "Username is required";
+    } elseif (strlen($username) < 3) {
+        $errors[] = "Username must be at least 3 characters long";
+    }
+    
+    if (empty($email)) {
+        $errors[] = "Email is required";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Invalid email format";
+    }
+    
+    if (empty($password)) {
+        $errors[] = "Password is required";
+    } elseif (strlen($password) < 6) {
+        $errors[] = "Password must be at least 6 characters long";
+    }
+    
+    if ($password !== $confirm_password) {
+        $errors[] = "Passwords do not match";
+    }
+    
+    // Check if username or email already exists
+    if (empty($errors)) {
+        try {
+            $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+            $stmt->execute([$username, $email]);
+            if ($stmt->rowCount() > 0) {
+                $errors[] = "Username or email already exists";
+            }
+        } catch (PDOException $e) {
+            error_log("Error checking username/email: " . $e->getMessage());
+            $errors[] = "An error occurred while checking username/email availability";
+        }
+    }
+    
+    // Create user if no errors
+    if (empty($errors)) {
+        try {
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $conn->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+            if ($stmt->execute([$username, $email, $hashed_password])) {
+                $_SESSION['success_message'] = "Registration successful! Please login.";
+                header("Location: login.php");
+                exit();
+            }
+        } catch (PDOException $e) {
+            error_log("Error creating user: " . $e->getMessage());
+            $errors[] = "An error occurred while creating your account";
+        }
+    }
+}
+
 $page_title = "Register";
 include 'includes/header.php';
 ?>

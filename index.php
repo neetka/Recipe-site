@@ -42,7 +42,7 @@ $cuisines = ['Italian', 'Mexican', 'Indian', 'Chinese', 'American', 'Japanese', 
     <?php include 'includes/header.php'; ?>
     
     <!-- Navigation Menu -->
-    <nav class="bg-white shadow-md mb-8">
+    <!-- <nav class="bg-white shadow-md mb-8">
         <div class="container mx-auto px-4">
             <ul class="flex space-x-6 overflow-x-auto py-4">
                 <li>
@@ -62,7 +62,7 @@ $cuisines = ['Italian', 'Mexican', 'Indian', 'Chinese', 'American', 'Japanese', 
                 </li>
             </ul>
         </div>
-    </nav>
+    </nav> -->
 
     <!-- Hero Section -->
     <div class="relative bg-gradient-to-r from-orange-400 to-red-500 text-white overflow-hidden">

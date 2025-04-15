@@ -26,13 +26,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sql = "INSERT INTO reviews (recipe_id, user_id, rating, comment) 
             VALUES (?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("iiis", $recipe_id, $user_id, $rating, $comment);
+    $stmt->execute([$recipe_id, $user_id, $rating, $comment]);
     
-    if ($stmt->execute()) {
+    if ($stmt->rowCount() > 0) {
         header("Location: recipe.php?id=$recipe_id");
         exit();
     } else {
-        die("Error saving review: " . $stmt->error);
+        die("Error saving review");
     }
 } else {
     header("Location: index.php");

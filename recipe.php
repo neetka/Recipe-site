@@ -10,31 +10,38 @@ if (!isset($_GET['id'])) {
 $recipe_id = intval($_GET['id']);
 
 // Get recipe details
-$sql = "SELECT r.*, u.username 
-        FROM recipes r 
-        JOIN users u ON r.user_id = u.id 
-        WHERE r.id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $recipe_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$recipe = $result->fetch_assoc();
+try {
+    $sql = "SELECT r.*, u.username 
+            FROM recipes r 
+            JOIN users u ON r.user_id = u.id 
+            WHERE r.id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([$recipe_id]);
+    $recipe = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$recipe) {
-    header("Location: index.php");
-    exit();
+    if (!$recipe) {
+        header("Location: index.php");
+        exit();
+    }
+} catch (PDOException $e) {
+    error_log("Error fetching recipe: " . $e->getMessage());
+    die("An error occurred while fetching the recipe.");
 }
 
 // Get reviews
-$sql = "SELECT rev.*, u.username 
-        FROM reviews rev 
-        JOIN users u ON rev.user_id = u.id 
-        WHERE rev.recipe_id = ? 
-        ORDER BY rev.created_at DESC";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $recipe_id);
-$stmt->execute();
-$reviews = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+try {
+    $sql = "SELECT rev.*, u.username 
+            FROM reviews rev 
+            JOIN users u ON rev.user_id = u.id 
+            WHERE rev.recipe_id = ? 
+            ORDER BY rev.created_at DESC";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([$recipe_id]);
+    $reviews = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Error fetching reviews: " . $e->getMessage());
+    $reviews = [];
+}
 
 // Calculate average rating
 $avg_rating = 0;
