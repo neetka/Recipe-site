@@ -6,13 +6,90 @@
     --primary-dark: #cc5500;
 }
 
-/* Common Button Styles */
-.btn-primary {
-    @apply px-6 py-2 bg-[#ff6b00] text-white rounded-lg hover:bg-[#ff8533] transform hover:scale-105 transition duration-300;
+/* Button Base Styles */
+.btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2;
 }
 
+/* Primary Button - Orange Theme */
+.btn-primary {
+    @apply bg-gradient-to-r from-[#ff6b00] to-[#ff8533] text-white hover:opacity-90 hover:shadow-lg focus:ring-[#ff6b00];
+}
+
+/* Secondary Button */
 .btn-secondary {
-    @apply px-6 py-2 border border-[#ff6b00] text-[#ff6b00] rounded-lg hover:bg-[#fff0e6] transition duration-300;
+    @apply bg-white text-gray-700 border-2 border-gray-300 hover:border-[#ff6b00] hover:text-[#ff6b00] hover:shadow-md focus:ring-gray-300;
+}
+
+/* Danger/Cancel Button */
+.btn-danger {
+    @apply bg-gradient-to-r from-red-500 to-red-600 text-white hover:opacity-90 hover:shadow-lg focus:ring-red-500;
+}
+
+/* Small Button */
+.btn-sm {
+    @apply px-3 py-1.5 text-sm;
+}
+
+/* Large Button */
+.btn-lg {
+    @apply px-6 py-3 text-lg;
+}
+
+/* Icon Button */
+.btn-icon {
+    @apply p-2 rounded-full hover:bg-gray-100 text-gray-600 hover:text-[#ff6b00];
+}
+
+/* Disabled Button */
+.btn:disabled {
+    @apply opacity-50 cursor-not-allowed hover:scale-100;
+}
+
+/* Loading Button */
+.btn-loading {
+    @apply relative cursor-wait;
+}
+
+.btn-loading::after {
+    content: "";
+    @apply absolute inset-0 rounded-lg bg-black bg-opacity-10;
+}
+
+/* Full Width Button */
+.btn-full {
+    @apply w-full;
+}
+
+/* Button Group */
+.btn-group {
+    @apply inline-flex rounded-lg overflow-hidden;
+}
+
+.btn-group .btn {
+    @apply rounded-none border-r border-opacity-20;
+}
+
+.btn-group .btn:first-child {
+    @apply rounded-l-lg;
+}
+
+.btn-group .btn:last-child {
+    @apply rounded-r-lg border-r-0;
+}
+
+/* Outline Variants */
+.btn-outline-primary {
+    @apply border-2 border-[#ff6b00] text-[#ff6b00] hover:bg-[#ff6b00] hover:text-white;
+}
+
+.btn-outline-secondary {
+    @apply border-2 border-gray-500 text-gray-700 hover:bg-gray-500 hover:text-white;
+}
+
+/* Link Button */
+.btn-link {
+    @apply text-[#ff6b00] hover:text-[#ff8533] underline-offset-2 hover:underline p-0 hover:scale-100;
 }
 
 /* Form Styles */

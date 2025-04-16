@@ -99,14 +99,28 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
         .profile-trigger {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.75rem;
             padding: 0.5rem;
             border-radius: 9999px;
             transition: all 0.3s ease;
+            min-width: 150px;
         }
 
         .profile-trigger:hover {
             background: #fff0e6;
+        }
+
+        .profile-trigger:hover .profile-avatar {
+            border-color: #ff6b00;
+            transform: scale(1.05);
+        }
+
+        .profile-trigger span {
+            flex: 1;
+            text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .profile-avatar {
@@ -120,6 +134,15 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
             color: white;
             font-weight: bold;
             text-transform: uppercase;
+            overflow: hidden;
+            border: 2px solid #fff0e6;
+            transition: all 0.3s ease;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .profile-menu-content {
@@ -212,27 +235,40 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                                 <span>My Recipes</span>
                             </a>
                             
-                            <!-- Profile Menu -->
+                            <!-- User Profile Menu -->
                             <div class="profile-menu">
                                 <button class="profile-trigger">
                                     <div class="profile-avatar">
-                                        <?php echo substr($_SESSION['username'], 0, 1); ?>
+                                        <?php
+                                        // Get user data for the profile menu
+                                        $stmt = $conn->prepare("SELECT username, profile_picture FROM users WHERE id = ?");
+                                        $stmt->execute([$_SESSION['user_id']]);
+                                        $user_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                                        
+                                        if (!empty($user_data['profile_picture'])): ?>
+                                            <img src="<?php echo htmlspecialchars($user_data['profile_picture']); ?>" 
+                                                 alt="Profile Picture"
+                                                 class="w-full h-full object-cover rounded-full">
+                                        <?php else: ?>
+                                            <?php echo strtoupper(substr($user_data['username'], 0, 1)); ?>
+                                        <?php endif; ?>
                                     </div>
-                                    <i class="fas fa-chevron-down text-gray-400"></i>
+                                    <span class="text-gray-700"><?php echo htmlspecialchars($user_data['username']); ?></span>
+                                    <i class="fas fa-chevron-down text-gray-400 text-sm"></i>
                                 </button>
-                                
+
                                 <div class="profile-menu-content">
                                     <a href="profile.php" class="menu-item">
                                         <i class="fas fa-user"></i>
-                                        <span>Profile</span>
+                                        <span>My Profile</span>
                                     </a>
-                                    <a href="favorites.php" class="menu-item">
-                                        <i class="fas fa-heart"></i>
-                                        <span>Favorites</span>
+                                    <a href="my-recipes.php" class="menu-item">
+                                        <i class="fas fa-utensils"></i>
+                                        <span>My Recipes</span>
                                     </a>
-                                    <a href="settings.php" class="menu-item">
-                                        <i class="fas fa-cog"></i>
-                                        <span>Settings</span>
+                                    <a href="add-recipe.php" class="menu-item">
+                                        <i class="fas fa-plus"></i>
+                                        <span>Add Recipe</span>
                                     </a>
                                     <hr class="my-2 border-gray-200">
                                     <a href="logout.php" class="menu-item danger">

@@ -11,7 +11,7 @@ $recipe_id = intval($_GET['id']);
 
 // Get recipe details
 try {
-    $sql = "SELECT r.*, u.username 
+    $sql = "SELECT r.*, u.username, u.profile_picture 
             FROM recipes r 
             JOIN users u ON r.user_id = u.id 
             WHERE r.id = ?";
@@ -64,7 +64,7 @@ if (count($reviews) > 0) {
     <?php include 'includes/header.php'; ?>
     
     <main class="container mx-auto px-4 py-8">
-        <div class="bg-white rounded-xl shadow-xl overflow-hidden">
+        <div class="bg-white rounded-xl shadow-xl overflow-hidden max-w-6xl mx-auto">
             <!-- Recipe Header -->
             <div class="relative">
                 <?php if (!empty($recipe['image_path'])): ?>
@@ -191,15 +191,21 @@ if (count($reviews) > 0) {
                     <div class="bg-white p-6 rounded-xl shadow-lg sticky top-4 animate__animated animate__fadeInRight">
                         <div class="mb-6">
                             <h3 class="font-bold text-lg mb-4 text-gray-800">
-                                <i class="fas fa-user-circle text-orange-500 mr-2"></i> Recipe By
+                           Recipe By
                             </h3>
                             <div class="flex items-center bg-orange-50 p-4 rounded-lg">
-                                <div class="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white mr-4">
-                                    <i class="fas fa-user text-xl"></i>
-                                </div>
+                                <?php if (!empty($recipe['profile_picture'])): ?>
+                                    <img src="<?php echo htmlspecialchars($recipe['profile_picture']); ?>" 
+                                         alt="<?php echo htmlspecialchars($recipe['username']); ?>"
+                                         class="w-12 h-12 rounded-full object-cover border-2 border-orange-500 mr-4">
+                                <?php else: ?>
+                                    <div class="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-xl mr-4">
+                                        <?php echo strtoupper(substr($recipe['username'], 0, 1)); ?>
+                                    </div>
+                                <?php endif; ?>
                                 <div>
-                                    <span class="font-medium text-gray-800"><?php echo htmlspecialchars($recipe['username']); ?></span>
-                                    <p class="text-sm text-gray-500">Master Chef 👨‍🍳</p>
+                                    <div class="font-medium text-gray-800"><?php echo htmlspecialchars($recipe['username']); ?></div>
+                                    <div class="text-sm text-gray-500">Master Chef 👨‍🍳</div>
                                 </div>
                             </div>
                         </div>
@@ -356,6 +362,11 @@ if (count($reviews) > 0) {
 </html>
 
 <?php
+// Keep only these functions
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 function getCuisineEmoji($cuisine) {
     $emojis = [
         'Italian' => '🍝',
@@ -379,3 +390,33 @@ function getDifficultyEmoji($difficulty) {
     return $emojis[$difficulty] ?? '📝';
 }
 ?>
+
+// Modify the recipe query to include user information
+$stmt = $conn->prepare("
+    SELECT r.*, u.username, u.profile_picture 
+    FROM recipes r 
+    JOIN users u ON r.user_id = u.id 
+    WHERE r.id = ?
+");
+$stmt->bind_param("i", $recipe_id);
+$stmt->execute();
+$recipe = $stmt->get_result()->fetch_assoc();
+
+<!-- Add this in the recipe details section -->
+<div class="flex items-center gap-4 mb-6">
+    <div class="flex items-center">
+        <?php if (!empty($recipe['profile_picture'])): ?>
+            <img src="<?php echo htmlspecialchars($recipe['profile_picture']); ?>" 
+                 alt="<?php echo htmlspecialchars($recipe['username']); ?>"
+                 class="w-12 h-12 rounded-full object-cover border-2 border-[#ff6b00]">
+        <?php else: ?>
+            <div class="w-12 h-12 rounded-full bg-[#ff6b00] flex items-center justify-center text-white font-bold text-xl">
+                <?php echo strtoupper(substr($recipe['username'], 0, 1)); ?>
+            </div>
+        <?php endif; ?>
+        <div class="ml-3">
+            <p class="font-medium text-gray-800"><?php echo htmlspecialchars($recipe['username']); ?></p>
+            <p class="text-sm text-gray-500">Master Chef 👨‍🍳</p>
+        </div>
+    </div>
+</div>

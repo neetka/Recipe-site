@@ -209,12 +209,14 @@ function getCuisineEmoji($cuisine) {
                 </div>
                 
                 <!-- Submit Button -->
-                <div class="flex items-center justify-end space-x-4 pt-6 border-t">
-                    <a href="index.php" class="btn-secondary">
-                        Cancel
+                <div class="flex justify-end gap-4 mt-8">
+                    <a href="index.php" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        <span>Cancel</span>
                     </a>
-                    <button type="submit" class="btn-primary">
-                        <i class="fas fa-plus mr-2"></i>Add Recipe
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Recipe</span>
                     </button>
                 </div>
             </form>

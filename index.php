@@ -449,6 +449,13 @@ $cuisines = ['Italian', 'Mexican', 'Indian', 'Chinese', 'American', 'Japanese', 
                                         <span><i class="fas fa-clock text-orange-400"></i> <?php echo $recipe['prep_time'] + $recipe['cook_time']; ?> mins</span>
                                         <span><i class="fas fa-user-chef text-orange-400"></i> By <?php echo htmlspecialchars($recipe['username']); ?></span>
                                     </div>
+                                    <!-- Add cuisine type -->
+                                    <div class="text-sm text-gray-600">
+                                        <span class="inline-flex items-center">
+                                            <?php echo getCuisineEmoji($recipe['cuisine_type']); ?> 
+                                            <?php echo htmlspecialchars($recipe['cuisine_type']); ?>
+                                        </span>
+                                    </div>
                                 </div>
                             </a>
                         </div>

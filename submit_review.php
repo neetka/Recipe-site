@@ -3,64 +3,63 @@ require_once 'includes/config.php';
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
 
-// Generate CSRF token if not exists
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+session_start();
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    $_SESSION['review_data'] = [
-        'recipe_id' => $_POST['recipe_id'],
-        'rating' => $_POST['rating'],
-        'comment' => $_POST['comment']
-    ];
-    header("Location: login.php?redirect=" . urlencode($_SERVER['HTTP_REFERER']));
+    header("Location: login.php");
     exit();
 }
 
-// Process review submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Verify CSRF token
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        die("Invalid request");
-    }
+// Validate CSRF token
+if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+    $_SESSION['error_message'] = "Invalid request. Please try again.";
+    header("Location: recipe.php?id=" . $_POST['recipe_id']);
+    exit();
+}
 
-    // Validate inputs
-    $recipe_id = validateInput($_POST['recipe_id'], 'int', 1);
-    $user_id = (int)$_SESSION['user_id'];
-    $rating = validateInput($_POST['rating'], 'int', 1, 5);
-    $comment = validateInput($_POST['comment'], 'string', 1, 1000);
-
-    if (!$recipe_id || !$rating || !$comment) {
-        die("Invalid input data");
+// Validate POST request and data
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && 
+    isset($_POST['recipe_id']) && 
+    isset($_POST['rating']) && 
+    isset($_POST['comment'])) {
+    
+    $recipe_id = filter_var($_POST['recipe_id'], FILTER_VALIDATE_INT);
+    $rating = filter_var($_POST['rating'], FILTER_VALIDATE_INT);
+    $comment = trim($_POST['comment']);
+    
+    // Validate data
+    if (!$recipe_id || $rating < 1 || $rating > 5 || empty($comment)) {
+        $_SESSION['error_message'] = "Please provide valid rating and comment.";
+        header("Location: recipe.php?id=" . $_POST['recipe_id']);
+        exit();
     }
 
     try {
-        // Check if recipe exists
-        $stmt = $conn->prepare("SELECT id FROM recipes WHERE id = ?");
-        $stmt->execute([$recipe_id]);
-        if (!$stmt->fetch()) {
-            die("Recipe not found");
-        }
-
-        // Check for existing review
+        // Check if user has already reviewed this recipe
         $stmt = $conn->prepare("SELECT id FROM reviews WHERE recipe_id = ? AND user_id = ?");
-        $stmt->execute([$recipe_id, $user_id]);
-        if ($stmt->fetch()) {
-            die("You have already reviewed this recipe");
+        $stmt->execute([$recipe_id, $_SESSION['user_id']]);
+        $existing_review = $stmt->fetch();
+
+        if ($existing_review) {
+            // Update existing review
+            $stmt = $conn->prepare("UPDATE reviews SET rating = ?, comment = ?, updated_at = NOW() WHERE recipe_id = ? AND user_id = ?");
+            $stmt->execute([$rating, $comment, $recipe_id, $_SESSION['user_id']]);
+        } else {
+            // Insert new review
+            $stmt = $conn->prepare("INSERT INTO reviews (recipe_id, user_id, rating, comment, created_at) VALUES (?, ?, ?, ?, NOW())");
+            $stmt->execute([$recipe_id, $_SESSION['user_id'], $rating, $comment]);
         }
 
-        // Save to database
-        $sql = "INSERT INTO reviews (recipe_id, user_id, rating, comment) VALUES (?, ?, ?, ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([$recipe_id, $user_id, $rating, $comment]);
-        
-        $_SESSION['review_success'] = true;
-        header("Location: " . $_SERVER['HTTP_REFERER']);
+        $_SESSION['success_message'] = "Your review has been submitted successfully!";
     } catch (PDOException $e) {
-        error_log("Error saving review: " . $e->getMessage());
-        die("An error occurred while saving your review. Please try again later.");
+        error_log("Review submission error: " . $e->getMessage());
+        $_SESSION['error_message'] = "An error occurred while submitting your review.";
     }
+} else {
+    $_SESSION['error_message'] = "Invalid request. Please fill all required fields.";
 }
-?>
+
+// Redirect back to recipe page
+header("Location: recipe.php?id=" . $_POST['recipe_id']);
+exit();
