@@ -4,8 +4,8 @@ require_once 'db.php';
 require_once 'functions.php';
 
 // Check if user is logged in (you'll need to implement authentication)
-$logged_in = false; // Change this based on your auth system
-$user_id = 1; // Replace with actual logged-in user ID
+$logged_in = false; 
+$user_id = 1; 
 
 if (!$logged_in) {
     header("Location: login.php");

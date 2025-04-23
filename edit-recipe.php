@@ -269,12 +269,13 @@ function getCuisineEmoji($cuisine) {
                 
                 <!-- Submit Buttons -->
                 <div class="flex justify-end space-x-4 mt-6">
-                    <a href="recipe.php?id=<?php echo $recipe_id; ?>" class="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200">
-                        Cancel
+                    <a href="recipe.php?id=<?php echo $recipe_id; ?>" 
+                       class="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition transform hover:scale-105">
+                        <i class="fas fa-times mr-2"></i> Cancel
                     </a>
-                    <button type="submit" name="save_changes" class="px-6 py-2 bg-[#ff6b00] text-white rounded-lg hover:bg-[#ff8533] transition-colors duration-200 flex items-center">
-                        <i class="fas fa-save mr-2"></i>
-                        Save Changes
+                    <button type="submit" name="save_changes" 
+                            class="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition transform hover:scale-105 flex items-center">
+                        <i class="fas fa-save mr-2"></i> Save Changes
                     </button>
                 </div>
             </form>
